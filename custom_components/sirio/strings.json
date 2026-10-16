@@ -1,0 +1,59 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect to Sirio controller",
+        "description": "Enter the IP address or hostname of the Sirio / WinET controller.",
+        "data": {
+          "host": "Host"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Unable to connect to the controller.",
+      "unknown": "Unexpected error while connecting to the controller."
+    },
+    "abort": {
+      "already_configured": "This controller is already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Sirio options",
+        "data": {
+          "scan_interval": "Polling interval (seconds)",
+          "auto_soft_start": "Automatically enable soft start"
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "pressure": { "name": "Pressure" },
+      "voltage": { "name": "Voltage" },
+      "current": { "name": "Current" },
+      "frequency": { "name": "Frequency" },
+      "temperature": { "name": "Temperature" },
+      "igbt_temperature": { "name": "IGBT temperature" },
+      "set_pressure": { "name": "Set pressure" },
+      "starts": { "name": "Starts" },
+      "hours_on": { "name": "Hours on" },
+      "hours_running": { "name": "Hours running" },
+      "error_code": { "name": "Error code" },
+      "power": { "name": "Power" },
+      "standby": { "name": "Standby" },
+      "soft_start_value": { "name": "Soft start value" }
+    },
+    "binary_sensor": {
+      "running": { "name": "Running" },
+      "error": { "name": "Error" },
+      "pump_enabled": { "name": "Pump enabled" },
+      "soft_start": { "name": "Soft start" }
+    },
+    "switch": {
+      "pump": { "name": "Pump" },
+      "soft_start": { "name": "Soft start" }
+    }
+  }
+}

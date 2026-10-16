@@ -1,0 +1,59 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Подключение к контроллеру Sirio",
+        "description": "Введите IP-адрес или hostname контроллера Sirio / WinET.",
+        "data": {
+          "host": "Хост"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Не удалось подключиться к контроллеру.",
+      "unknown": "Неизвестная ошибка при подключении к контроллеру."
+    },
+    "abort": {
+      "already_configured": "Этот контроллер уже добавлен."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Настройки Sirio",
+        "data": {
+          "scan_interval": "Интервал опроса (сек)",
+          "auto_soft_start": "Автоматически включать плавный пуск"
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "pressure": { "name": "Давление" },
+      "voltage": { "name": "Напряжение" },
+      "current": { "name": "Ток" },
+      "frequency": { "name": "Частота" },
+      "temperature": { "name": "Температура" },
+      "igbt_temperature": { "name": "Температура IGBT" },
+      "set_pressure": { "name": "Заданное давление" },
+      "starts": { "name": "Пуски" },
+      "hours_on": { "name": "Часов включено" },
+      "hours_running": { "name": "Часов работы" },
+      "error_code": { "name": "Код ошибки" },
+      "power": { "name": "Мощность" },
+      "standby": { "name": "Standby" },
+      "soft_start_value": { "name": "Регистр soft start" }
+    },
+    "binary_sensor": {
+      "running": { "name": "Работает" },
+      "error": { "name": "Ошибка" },
+      "pump_enabled": { "name": "Насос включён" },
+      "soft_start": { "name": "Плавный пуск" }
+    },
+    "switch": {
+      "pump": { "name": "Насос" },
+      "soft_start": { "name": "Плавный пуск" }
+    }
+  }
+}

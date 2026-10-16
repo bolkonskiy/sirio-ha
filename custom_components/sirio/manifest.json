@@ -1,0 +1,14 @@
+{
+  "domain": "sirio",
+  "name": "Sirio Universal",
+  "codeowners": [
+    "@antonchuprakov"
+  ],
+  "config_flow": true,
+  "documentation": "https://git.chprkv.by/anton/sirio-universal",
+  "integration_type": "device",
+  "iot_class": "local_polling",
+  "issue_tracker": "https://git.chprkv.by/anton/sirio-universal/issues",
+  "requirements": [],
+  "version": "1.0.0"
+}
