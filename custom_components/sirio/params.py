@@ -24,6 +24,7 @@ class NumberParam:
 
     index: int
     key: str
+    ref: str
     name: str
     advanced: bool
     minimum: float
@@ -32,7 +33,12 @@ class NumberParam:
     precision: int
     mode: str
     unit: str | None = None
-    note: str = ""
+    manual: str = ""
+
+    @property
+    def title(self) -> str:
+        """Panel name, numbered as in the manual."""
+        return f"{self.ref} {self.name}"
 
     def display(self, raw: int) -> float:
         """Convert a raw register to the panel value."""
@@ -65,58 +71,190 @@ class SelectParam:
 
     index: int
     key: str
+    ref: str
     name: str
     advanced: bool
     options: dict[int, str]
-    note: str = ""
+    manual: str = ""
+
+    @property
+    def title(self) -> str:
+        """Panel name, numbered as in the manual."""
+        return f"{self.ref} {self.name}"
 
 
 NUMBERS: tuple[NumberParam, ...] = (
-    NumberParam(0, "pmax", "Pmax", False, 0, 10, 0.1, 1, "div10", "bar", "Рабочая точка, постоянное давление. Сервисный мануал: базовая настройка."),
-    NumberParam(1, "delta_start", "Дельта пуска", False, 0, 5, 0.1, 1, "div10", "bar", "На сколько давление должно упасть от Pmax, чтобы насос включился. Разница с Pmax не меньше 0,3 бар, лучше от 0,5."),
-    NumberParam(2, "dry_run_pressure", "Давление сухого хода", False, 0, 5, 0.1, 1, "div10", "bar", "Порог давления для защиты от сухого хода."),
-    NumberParam(3, "pressure_limit", "Предел давления", False, 0, 10, 0.1, 1, "div10", "bar", "Выше этого порога авария E9, предел давления."),
-    NumberParam(4, "pmax2", "Pmax 2", False, 0, 10, 0.1, 1, "div10", "bar", "Вторая рабочая точка, когда контакт AUX или вход I/O стоит в 3 X2."),
-    NumberParam(5, "delta_stop", "Дельта стопа", False, 0, 5, 0.1, 1, "div10", "bar", "Дельта давления для останова насоса."),
-    NumberParam(10, "imax", "Imax", False, 0.5, 20, 0.1, 1, "div10", "A", "Максимальный ток двигателя. Выше него авария E6, перегрузка. На этом контроллере шкала до десятков ампер, не до 9,7 как в старой книжке."),
-    NumberParam(12, "freq_min", "Минимальная частота", False, 0, 70, 1, 0, "raw", "Hz", "П. 1.2. Минимум для пуска и работы. Для трехфазного насоса мануал советует 25 Гц, для однофазного 30 Гц."),
-    NumberParam(13, "freq_stop", "Частота стопа", False, 0, 70, 1, 0, "raw", "Hz", "П. 1.3. Ниже этой частоты насос останавливается, если флюсостат выключен. Частые пуски — уменьшить, не останавливается — увеличить."),
-    NumberParam(14, "freq_nominal", "Номинальная частота", False, 45, 70, 1, 0, "raw", "Hz", "П. 1.4. Мануал: 50 или 60 Гц, строго по шильдику насоса."),
-    NumberParam(15, "freq_switching", "Частота переключения", False, 3, 10, 1, 0, "raw", "kHz", "П. 1.5. Мануал: 3, 5 или 10 кГц. Выше — тише и ровнее, но горячее плата и больше помех на длинном кабеле."),
-    NumberParam(16, "freq_correction", "Коррекция частоты", False, -5, 5, 1, 0, "sub10", "Hz", "П. 1.6. Сдвиг максимума от номинала, от -5 до +5 Гц. Минус ограничивает мощность, плюс — только после сверки с производителем насоса."),
-    NumberParam(25, "stop_delay", "Задержка стопа", False, 0, 60, 0.1, 1, "div10", "s", "П. 2.5. Секунды после закрытия кранов. Заводское 10 с. Увеличить, если на слабом потоке насос дергается или ловит сухой ход."),
-    NumberParam(26, "autoreset_interval", "Интервал автосброса", False, 1, 240, 1, 0, "raw", "min", "П. 2.6. Пауза между проверками, появилась ли вода. Максимум 240 мин, мануал советует 60."),
-    NumberParam(27, "autoreset_tests", "Число тестов автосброса", False, 0, 20, 1, 0, "raw", "П. 2.7. Сколько попыток выйти из сухого хода. 0 отключает автосброс, максимум 20."),
-    NumberParam(40, "vboost", "Vboost", True, 0, 30, 1, 0, "raw", "%", "П. 4.0. Добавка напряжения на 0 Гц, компенсация потерь в обмотке. Больше — выше напряжение на моторе при низкой частоте."),
-    NumberParam(41, "dry_run_delay", "Задержка сухого хода", True, 0, 240, 1, 0, "raw", "s", "П. 4.1. Задержка перед защитой от сухого хода. Увеличить на длинной всасывающей линии и при долгом заполнении."),
-    NumberParam(44, "pwm_dead_time", "Dead time PWM", True, 0, 100, 1, 0, "raw", "x125ns", "П. 4.4. Пауза между переключениями IGBT одной стойки. Мануал: менять только вместе с производителем."),
-    NumberParam(45, "ki", "Ki", True, 0, 50, 1, 0, "raw", "П. 4.5. Интеграл ПИД. Больше — давление ближе к уставке, слишком много — качает давление."),
-    NumberParam(46, "kp", "Kp", True, 0, 50, 1, 0, "raw", "П. 4.6. Пропорция ПИД. Больше — быстрее реакция, слишком много — броски давления."),
-    NumberParam(47, "boost_time", "Время boost", True, 0, 5000, 10, 0, "mul10", "ms", "П. 4.7. Сколько держать максимальную частоту на старте, если плавный пуск выключен."),
-    NumberParam(50, "ta_max", "Ta max", True, 40, 100, 1, 0, "raw", "°C", "П. 5.0. Максимум температуры платы до тепловой аварии. Мануал: менять только с разрешения производителя."),
-    NumberParam(51, "tm_max", "Tm max", True, 40, 100, 1, 0, "raw", "°C", "П. 5.1. Максимум температуры модуля IGBT. Мануал: менять только с разрешения производителя."),
-    NumberParam(52, "ta_reduction", "Индекс снижения Ta", True, 0, 20, 1, 0, "raw", "Hz/°C", "П. 5.2. На сколько Гц резать частоту за каждый градус, когда до Ta max осталось меньше 5 °C."),
-    NumberParam(53, "tm_reduction", "Индекс снижения Tm", True, 0, 20, 1, 0, "raw", "Hz/°C", "П. 5.3. То же для температуры модуля IGBT."),
-    NumberParam(54, "min_flow", "Минимальный поток", True, 0, 50, 1, 0, "raw", "L/min", "П. 5.4. Ниже этого потока при закрытых кранах насос останавливается. Меньше — можно держать совсем слабый разбор."),
-    NumberParam(55, "ipm", "Разгон", True, 0, 20, 1, 0, "raw", "Hz/s", "П. 5.5. Скорость рампы разгона из ожидания. На Sirio IPM это выбор мотора, на Universal — рампы."),
-    NumberParam(56, "voltage_min", "Минимальное напряжение", True, 100, 280, 1, 0, "voltage", "V", "П. 5.6. Ниже этого порога авария низкого напряжения."),
-    NumberParam(57, "voltage_max", "Максимальное напряжение", True, 100, 280, 1, 0, "voltage", "V", "П. 5.7. Выше этого порога авария высокого напряжения. Примерно на 30 В ниже насос уже начинает плавно сбрасывать обороты."),
-    NumberParam(59, "debug", "Переменная отладки", True, 0, 255, 1, 0, "raw", "П. 5.9. Какую внутреннюю переменную показывать для отладки."),
+    NumberParam(
+        0, "pmax", "0.0", "Pmax (set-point)", False, 0, 10, 0.1, 1, "div10", "bar",
+        "Sets the working point: the constant pressure held in the system. After start, motor speed is regulated so the pressure stays as close as possible to Pmax. The smallest difference between Pmax and the start pressure is 0.3 bar; 0.5 bar or more is recommended. If Pmax is set above the pump's maximum head, the motor stops whenever the valves close, because Sirio stops the pump when flow falls below the minimum, regardless of pressure.",
+    ),
+    NumberParam(
+        1, "delta_start", "0.1", "Delta pressure for pump start", False, 0, 5, 0.1, 1, "div10", "bar",
+        "How far the pressure must fall below Pmax before the pump starts. If a tap opens, the pump waits until system pressure drops by this delta. The manual sets the minimum gap between Pmax and the start pressure at 0.3 bar and recommends at least 0.5 bar.",
+    ),
+    NumberParam(
+        2, "dry_run_pressure", "0.2", "Dry running pressure", False, 0, 5, 0.1, 1, "div10", "bar",
+        "Pressure threshold of the dry-running protection. When the flow switch is off, this value and the stop frequency (1.3) are what stop the pump if there is no water. On a long suction line, also increase the dry-run delay (4.1).",
+    ),
+    NumberParam(
+        3, "pressure_limit", "0.3", "Pressure limit", False, 0, 10, 0.1, 1, "div10", "bar",
+        "Maximum pressure threshold. Above it, alarm E9 (pressure limit) trips and the system stops. If E9 keeps coming back, check this setting.",
+    ),
+    NumberParam(
+        4, "pmax2", "0.4", "Pmax 2 (set-point 2)", False, 0, 10, 0.1, 1, "div10", "bar",
+        "Second working point. Sirio regulates to Pmax 2 instead of Pmax when the auxiliary contact, or the I/O board input, is set to 3 X2 and that contact is closed.",
+    ),
+    NumberParam(
+        5, "delta_stop", "0.5", "Delta pressure for pump stop", False, 0, 5, 0.1, 1, "div10", "bar",
+        "Pressure delta used to stop the pump. Together with the stop delay (2.5) it decides when regulation ends after demand falls.",
+    ),
+    NumberParam(
+        10, "imax", "1.0", "Imax", False, 0.5, 20, 0.1, 1, "div10", "A",
+        "Maximum current the motor may draw in normal running. Above it the motor is stopped: alarm E6, overload. A small overload is allowed for longer; a heavy overload trips immediately. If the current measured while running stays below 0.5 A, Sirio treats the motor as disconnected and stops. On first power-up, if Imax is still 0.5 A, the controller waits on this page until a real value is entered. The older user booklet limits the setting to 0.5–9.7 A; this Universal goes higher.",
+    ),
+    NumberParam(
+        12, "freq_min", "1.2", "Minimum frequency", False, 0, 70, 1, 0, "raw", "Hz",
+        "Minimum frequency at which the pump starts and runs. Service manual: about 25 Hz for a three-phase pump and 30 Hz for a single-phase pump. Check the pump manufacturer's data for the lowest frequency at which this motor still runs properly. The user booklet also gives it as a percentage of maximum frequency: 50% for a surface pump, 60% for a pump 8–10 m down, 70% deeper than 10 m. Raise it if start is too slow and pressure falls hard during start.",
+    ),
+    NumberParam(
+        13, "freq_stop", "1.3", "Stop frequency", False, 0, 70, 1, 0, "raw", "Hz",
+        "Used when the flow switch is off. Frequency below which the motor is stopped. During regulation, if Pmax is reached and the motor frequency is still below this value, the inverter stops the pump. If every tap is closed and pressure is steady, the pump stops in the normal way. If it does not stop, increase this value. If it restarts too often, decrease it.",
+    ),
+    NumberParam(
+        14, "freq_nominal", "1.4", "Nominal motor frequency", False, 45, 70, 1, 0, "raw", "Hz",
+        "Nominal output frequency of the inverter, 50 or 60 Hz, taken from the pump nameplate. A wrong choice can damage the pump.",
+    ),
+    NumberParam(
+        15, "freq_switching", "1.5", "Switching frequency", False, 3, 10, 1, 0, "raw", "kHz",
+        "PWM switching frequency of the inverter. The manual allows 3, 5 or 10 kHz. A higher frequency is quieter and smoother, but the board runs hotter, electromagnetic interference rises, and a long motor cable can be harmed. Use a lower frequency for medium and large pumps, when Sirio is far from the pump, or when the ambient temperature is high.",
+    ),
+    NumberParam(
+        16, "freq_correction", "1.6", "Frequency correction", False, -5, 5, 1, 0, "sub10", "Hz",
+        "Offset of the maximum frequency from the nominal value, from -5 Hz to +5 Hz. A negative offset limits pump power and helps avoid overload; lowering the frequency needs no extra precautions. A positive offset can raise performance a little and has to be checked with the pump manufacturer, within the inverter's maximum current.",
+    ),
+    NumberParam(
+        25, "stop_delay", "2.5", "Delay on stop", False, 0, 60, 0.1, 1, "div10", "s",
+        "How many seconds after all taps are closed the pump stops. If it cycles on a small flow, increase the delay so running is smoother. A longer delay also reduces dry-run trips, especially with borehole pumps and pumps that are slow to prime. Factory setting is 10 s.",
+    ),
+    NumberParam(
+        26, "autoreset_interval", "2.6", "Autoreset interval", False, 1, 240, 1, 0, "raw", "min",
+        "If the pump loses water on the suction side, Sirio cuts the motor to protect it. This is the wait, in minutes, before Sirio tests whether water is back. A successful test clears the fault and the system runs again; a failed test is repeated after the same interval. Maximum on this software is 240 minutes. The manual recommends 60. The older user booklet allows up to 300 minutes.",
+    ),
+    NumberParam(
+        27, "autoreset_tests", "2.7", "No. autoreset tests", False, 0, 20, 1, 0, "raw", None,
+        "How many times Sirio tries to restart after a dry-run stop. When the count is used up, the system stays off until someone resets it. 0 disables automatic restart. Maximum is 20. The user booklet counts only short starts that never reach about 2.5 l/min, and on that older software the maximum is 10.",
+    ),
+    NumberParam(
+        40, "vboost", "4.0", "Vboost", True, 0, 30, 1, 0, "raw", "%",
+        "Voltage boost at 0 Hz. Percentage added to the voltage at 0 Hz to compensate for stator losses. Raising it increases the voltage supplied to the motor as the frequency falls.",
+    ),
+    NumberParam(
+        41, "dry_run_delay", "4.1", "Dry run", True, 0, 240, 1, 0, "raw", "s",
+        "Delay before dry-running protection trips. Increase it if the suction pipes are very long or the pump takes a long time to prime.",
+    ),
+    NumberParam(
+        44, "pwm_dead_time", "4.4", "Dead time PWM", True, 0, 100, 1, 0, "raw", "x125ns",
+        "Dead time between two switching events of the IGBTs on the same branch. It may need changing to correct the average output voltage after the switching frequency (1.5) is changed. The manual says to ask the manufacturer before choosing a value.",
+    ),
+    NumberParam(
+        45, "ki", "4.5", "Ki", True, 0, 50, 1, 0, "raw", None,
+        "Integral constant of the PID that holds constant pressure. A higher value pulls the output pressure closer to the set-point. Too high and the regulation becomes unstable: the pressure keeps oscillating. The user booklet describes the same control as one PID value, factory 25, maximum 50: low values are slow but smooth, high values react faster.",
+    ),
+    NumberParam(
+        46, "kp", "4.6", "Kp", True, 0, 50, 1, 0, "raw", None,
+        "Proportional constant of the PID that holds constant pressure. A higher value makes the system react faster to pressure changes. Too high and it overshoots or brakes hard, and the pressure oscillates.",
+    ),
+    NumberParam(
+        47, "boost_time", "4.7", "Boost time", True, 0, 5000, 10, 0, "mul10", "ms",
+        "How long the pump runs at maximum frequency before PID regulation starts, used when soft-start (1.7) is off. Increase it if the pump struggles to start, especially a single-phase pump. Decrease it if that run-up raises the system pressure more than you want.",
+    ),
+    NumberParam(
+        50, "ta_max", "5.0", "Ta max", True, 40, 100, 1, 0, "raw", "°C",
+        "Maximum ambient temperature inside the inverter before thermal cut-out. The manual allows a change only with the manufacturer's authorisation, because it affects safe operation. Frequency reduction (5.2) starts when the temperature is within 5 °C of this limit.",
+    ),
+    NumberParam(
+        51, "tm_max", "5.1", "Tm max", True, 40, 100, 1, 0, "raw", "°C",
+        "Maximum IGBT module temperature before thermal cut-out. The manual allows a change only with the manufacturer's authorisation, because it affects safe operation. Frequency reduction (5.3) starts when the module temperature is within 5 °C of this limit.",
+    ),
+    NumberParam(
+        52, "ta_reduction", "5.2", "Ta reduction index", True, 0, 20, 1, 0, "raw", "Hz/°C",
+        "How much the maximum motor frequency is reduced, per degree, as the ambient temperature approaches Ta max (5.0). Reduction starts when the temperature is less than 5 °C below that limit. Past the threshold, maximum frequency falls by this many hertz for every further degree.",
+    ),
+    NumberParam(
+        53, "tm_reduction", "5.3", "Tm reduction index", True, 0, 20, 1, 0, "raw", "Hz/°C",
+        "How much the maximum motor frequency is reduced, per degree, as the IGBT module temperature approaches Tm max (5.1). Reduction starts when the module is less than 5 °C below that limit. Past the threshold, maximum frequency falls by this many hertz for every further degree.",
+    ),
+    NumberParam(
+        54, "min_flow", "5.4", "Minimum flow", True, 0, 50, 1, 0, "raw", "L/min",
+        "Flow below which the pump is stopped once every outlet is closed. Lower it to let the pump keep running at a very small flow. Raise it if the pump does not stop when delivery is fully closed. The user booklet quotes a typical stop threshold of about 2 l/min.",
+    ),
+    NumberParam(
+        55, "ipm", "5.5", "IPM mod.", True, 0, 20, 1, 0, "raw", "Hz/s",
+        "On Sirio Universal and Universal XP this is the frequency ramp: how fast the motor accelerates when the drive leaves stand-by. On Sirio IPM the same number is reserved for motor selection; see the IPM documentation. The panel label is IPM mod.",
+    ),
+    NumberParam(
+        56, "voltage_min", "5.6", "Minimum voltage", True, 100, 280, 1, 0, "voltage", "V",
+        "Minimum mains voltage. Below it the undervoltage protection trips (alarm E0, low voltage).",
+    ),
+    NumberParam(
+        57, "voltage_max", "5.7", "Maximum voltage", True, 100, 280, 1, 0, "voltage", "V",
+        "Maximum mains voltage. Above it the overvoltage protection trips (alarm E1, high voltage). From this setting the inverter also derives a level about 30 V lower, above which the pump slows down in a controlled way so the DC bus does not surge.",
+    ),
+    NumberParam(
+        59, "debug", "5.9", "Debug Variable", True, 0, 255, 1, 0, "raw", None,
+        "Selects an internal process variable and shows it, so its trend can be watched while the unit is running. Service use.",
+    ),
 )
 
 SELECTS: tuple[SelectParam, ...] = (
-    SelectParam(6, "unit", "Единица измерения", False, {9: "BAR", 10: "PSI"}, "BAR или PSI для давления на панели."),
-    SelectParam(11, "rotation", "Направление вращения", False, {21: "-->", 22: "<--"}, "Стрелка на панели не гарантирует сторону вращения. Проверять по насосу."),
-    SelectParam(17, "soft_start_mode", "Плавный пуск", False, {7: "ON", 8: "OFF"}, "П. 1.7. ON — набор оборотов плавно. OFF — сначала максимум на время boost, п. 4.7."),
-    SelectParam(20, "flow_switch", "Флюсостат", False, {7: "ON", 8: "OFF"}, "П. 2.0. Заводское ON. OFF только если датчик потока врет: тогда обязательны частота стопа, давление сухого хода и гидроаккумулятор сразу после Sirio."),
-    SelectParam(21, "command_source", "Источник команды", False, {18: "MAN", 19: "0-10V", 20: "PRESS"}, "П. 2.1. PRESS — по давлению. MAN — ручной, без сухого хода и предела давления, только ненадолго и под присмотром."),
-    SelectParam(22, "aux_contact", "Контакт AUX", False, {23: "1<->", 24: "2<--", 25: "3 X2"}, "П. 2.2. 1<-> пара Sirio, 2<-- дистанционный пуск, 3 X2 вторая уставка Pmax2."),
-    SelectParam(23, "io_input", "Вход платы I/O", False, {24: "2<--", 25: "3 X2", 26: "ERR", 27: "OFF"}, "П. 2.3. OFF выключен, ERR внешняя авария, 2<-- пуск по И с AUX, 3 X2 вторая уставка по ИЛИ с AUX."),
-    SelectParam(24, "io_output", "Выход платы I/O", False, {3: "OFF", 4: "ERR", 5: "P.ON", 6: "AUX"}, "П. 2.4. OFF, ERR авария, P.ON насос работает, AUX второй насос. Нагрузка реле не больше 0,3 А."),
-    SelectParam(28, "total_autoreset", "Полный автосброс", False, {7: "ON", 8: "OFF"}, "П. 2.8. ON сбрасывает любую аварию, не только сухой ход. Мануал предупреждает: для перегрузки это опасно."),
-    SelectParam(42, "starts_per_hour", "Защита пусков в час", True, {11: "OFF", 12: "10", 13: "20", 14: "30", 15: "40", 16: "50", 17: "60"}, "П. 4.2. Лимит пусков в час, проверка утечки. OFF отключает. Превышение — авария E11."),
-    SelectParam(43, "antiblock", "Антиблокировка", True, {7: "ON", 8: "OFF"}, "П. 4.3. Если сутки не было запроса, раз в 24 часа короткий пуск, чтобы не закис сальник."),
-    SelectParam(48, "relay_mode", "Реле N.O. / N.C.", True, {1: "N.O.", 2: "N.C."}, "П. 4.8. Нормально открытое или закрытое реле платы I/O. Если панель показывает ---, регистр не в этих двух положениях, и шагать его нельзя."),
+    SelectParam(
+        6, "unit", "0.6", "Unit of measurement", False, {9: "BAR", 10: "PSI"},
+        "Unit used for pressure on the panel and for the pressure parameters: BAR or PSI.",
+    ),
+    SelectParam(
+        11, "rotation", "1.1", "Rotation direction", False, {21: "-->", 22: "<--"},
+        "Reverses motor rotation without changing the wiring. The arrow shown here is only a guide. It is not the real direction of rotation, which the installer still has to check on the pump.",
+    ),
+    SelectParam(
+        17, "soft_start_mode", "1.7", "Soft-start", False, {7: "ON", 8: "OFF"},
+        "ON: the pump ramps up gradually. OFF: for the boost time (4.7) the pump runs at maximum frequency, and only then does speed regulation start.",
+    ),
+    SelectParam(
+        20, "flow_switch", "2.0", "Flow switch activation", False, {7: "ON", 8: "OFF"},
+        "Built-in flow sensor. Factory setting is ON: the pump stops when the taps close and Sirio sees that flow has ended. The same sensor is part of the dry-running protection. Dirty water can make the sensor misread, so the pump no longer stops correctly. It can then be switched OFF, and Sirio works from pressure and frequency only. Stop frequency (1.3) and dry-running pressure (0.2) must be set carefully, and a pressure tank has to be fitted immediately after Sirio. Check that tank's pre-charge from time to time.",
+    ),
+    SelectParam(
+        21, "command_source", "2.1", "Command source", False, {18: "MAN", 19: "0-10V", 20: "PRESS"},
+        "PRESS: automatic control from system pressure. MAN: start, stop and speed from the buttons. In manual mode the dry-running protection and the pressure limits are off. The manual allows that only briefly, with a qualified person watching. 0-10V: external analogue command.",
+    ),
+    SelectParam(
+        22, "aux_contact", "2.2", "Auxiliary contact function", False, {23: "1<->", 24: "2<--", 25: "3 X2"},
+        "1<-> : stand-alone Sirio, or two Sirio units linked as a twin booster set. This is the factory setting. 2<-- : the auxiliary contact is a remote start/stop. 3 X2 : the auxiliary contact selects the second pressure set-point, Pmax 2.",
+    ),
+    SelectParam(
+        23, "io_input", "2.3", "I/O board input function", False, {24: "2<--", 25: "3 X2", 26: "ERR", 27: "OFF"},
+        "Function of the digital input on the optional I/O board. OFF: input disabled. ERR: a closed input stops the pump at once and shows External error. 2<-- : remote start/stop; if the auxiliary contact is also 2<--, both contacts must be closed to run (logical AND). 3 X2 : selects Pmax 2; if the auxiliary contact is also 3 X2, either contact selects the second set-point (logical OR).",
+    ),
+    SelectParam(
+        24, "io_output", "2.4", "I/O board output function", False, {3: "OFF", 4: "ERR", 5: "P.ON", 6: "AUX"},
+        "Function of the digital output on the optional I/O board. OFF: output disabled. ERR: the contact closes while Sirio is in fault. P.ON: the contact closes while the pump is running. AUX: runs an auxiliary pump at a fixed speed when the Sirio pump cannot meet demand. The contact closes when frequency is at the maximum and pressure has fallen below the start pressure. Do not put more than 0.3 A on the output relay.",
+    ),
+    SelectParam(
+        28, "total_autoreset", "2.8", "Total automatic reset", False, {7: "ON", 8: "OFF"},
+        "ON: automatic restart applies to every fault the system reports, not only dry running. The manual warns that an unsupervised restart after some faults, overload in particular, can damage the installation and the Sirio. Use it carefully.",
+    ),
+    SelectParam(
+        42, "starts_per_hour", "4.2", "Protection starts per hour", True, {11: "OFF", 12: "10", 13: "20", 14: "30", 15: "40", 16: "50", 17: "60"},
+        "Maximum pump starts in one hour, used as a leak check. OFF disables the protection. Above the limit, alarm E11 (maximum starts per hour) trips. The user booklet calls the same alarm Serious leakage and says to raise the limit if it trips without a real leak. Only short starts are counted, those that never reach about 2.5 l/min.",
+    ),
+    SelectParam(
+        43, "antiblock", "4.3", "Anti-blockage protection", True, {7: "ON", 8: "OFF"},
+        "24-hour anti-seize. If enabled, and nothing has asked the pump to run, Sirio starts it once every 24 hours so the mechanical seal does not seize.",
+    ),
+    SelectParam(
+        48, "relay_mode", "4.8", "Relay N.O. - N.C. mode", True, {1: "N.O.", 2: "N.C."},
+        "Output relay of the I/O board: normally open or normally closed. If the panel shows ---, the register is in neither position. It is not stepped from there, because reaching N.O. or N.C. would take hundreds of steps and the relay would change on the way.",
+    ),
 )
 
 ALL_PARAMS: tuple[NumberParam | SelectParam, ...] = NUMBERS + SELECTS

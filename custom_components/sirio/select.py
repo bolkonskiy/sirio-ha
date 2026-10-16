@@ -45,7 +45,7 @@ class SirioSelectEntity(SirioEntity, SelectEntity):
         self._param = param
         self._attr_unique_id = f"{entry_id}_param_{param.index}"
         self._attr_suggested_object_id = f"sirio_{param.key}"
-        self._attr_name = param.name
+        self._attr_name = param.title
 
     @property
     def options(self) -> list[str]:
@@ -69,9 +69,9 @@ class SirioSelectEntity(SirioEntity, SelectEntity):
         """Manual note and the raw register."""
         raw = self.coordinator.data.params.get(self._param.index)
         return {
-            "регистр": self._param.index,
-            "сырое": raw,
-            "описание": self._param.note,
+            "manual": self._param.manual,
+            "register": self._param.index,
+            "raw": raw,
         }
 
     async def async_select_option(self, option: str) -> None:

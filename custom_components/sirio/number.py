@@ -43,15 +43,13 @@ class SirioNumberEntity(SirioEntity, NumberEntity):
         self._param = param
         self._attr_unique_id = f"{entry_id}_param_{param.index}"
         self._attr_suggested_object_id = f"sirio_{param.key}"
-        self._attr_name = param.name
+        self._attr_name = param.title
         self._attr_native_min_value = param.minimum
         self._attr_native_max_value = param.maximum
         self._attr_native_step = param.step
         self._attr_native_unit_of_measurement = param.unit
         self._attr_suggested_display_precision = param.precision
-        self._attr_entity_category = (
-            EntityCategory.DIAGNOSTIC if param.index == 59 else EntityCategory.CONFIG
-        )
+        self._attr_entity_category = EntityCategory.CONFIG
 
     @property
     def native_value(self) -> float | None:
@@ -66,9 +64,9 @@ class SirioNumberEntity(SirioEntity, NumberEntity):
         """Manual note and the raw register."""
         raw = self.coordinator.data.params.get(self._param.index)
         return {
-            "регистр": self._param.index,
-            "сырое": raw,
-            "описание": self._param.note,
+            "manual": self._param.manual,
+            "register": self._param.index,
+            "raw": raw,
         }
 
     async def async_set_native_value(self, value: float) -> None:
