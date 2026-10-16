@@ -37,8 +37,8 @@ class NumberParam:
 
     @property
     def title(self) -> str:
-        """English manual name, then the Russian name from the same manual."""
-        return f"{self.ref} {self.name} — {RU[self.index][0]}"
+        """Panel name, numbered as in the manual."""
+        return f"{self.ref} {self.name}"
 
     @property
     def name_ru(self) -> str:
@@ -87,8 +87,8 @@ class SelectParam:
 
     @property
     def title(self) -> str:
-        """English manual name, then the Russian name from the same manual."""
-        return f"{self.ref} {self.name} — {RU[self.index][0]}"
+        """Panel name, numbered as in the manual."""
+        return f"{self.ref} {self.name}"
 
     @property
     def name_ru(self) -> str:
@@ -102,11 +102,11 @@ class SelectParam:
 NUMBERS: tuple[NumberParam, ...] = (
     NumberParam(
         0, "pmax", "0.0", "Pmax (set-point)", False, 0, 10, 0.1, 1, "div10", "bar",
-        "Sets the working point: the constant pressure held in the system. After start, motor speed is regulated so the pressure stays as close as possible to Pmax. The smallest difference between Pmax and the start pressure is 0.3 bar; 0.5 bar or more is recommended. If Pmax is set above the pump's maximum head, the motor stops whenever the valves close, because Sirio stops the pump when flow falls below the minimum, regardless of pressure.",
+        "Pressure set-point. In parameter 1.3: during regulation, if Pmax is reached and the motor frequency is below the stop frequency, the inverter stops the pump.",
     ),
     NumberParam(
         1, "delta_start", "0.1", "Delta pressure for pump start", False, 0, 5, 0.1, 1, "div10", "bar",
-        "How far the pressure must fall below Pmax before the pump starts. If a tap opens, the pump waits until system pressure drops by this delta. The manual sets the minimum gap between Pmax and the start pressure at 0.3 bar and recommends at least 0.5 bar.",
+        "Delta pressure for pump start: how far pressure must fall below Pmax before the pump starts.",
     ),
     NumberParam(
         2, "dry_run_pressure", "0.2", "Dry running pressure", False, 0, 5, 0.1, 1, "div10", "bar",
@@ -126,11 +126,11 @@ NUMBERS: tuple[NumberParam, ...] = (
     ),
     NumberParam(
         10, "imax", "1.0", "Imax", False, 0.5, 20, 0.1, 1, "div10", "A",
-        "Maximum current the motor may draw in normal running. Above it the motor is stopped: alarm E6, overload. A small overload is allowed for longer; a heavy overload trips immediately. If the current measured while running stays below 0.5 A, Sirio treats the motor as disconnected and stops. On first power-up, if Imax is still 0.5 A, the controller waits on this page until a real value is entered. The older user booklet limits the setting to 0.5–9.7 A; this Universal goes higher.",
+        "Maximum motor current. Alarm E6, overload, appears when pump current exceeds the value set in Imax. The service manual lists intensive use, frequent restarts, a motor winding fault, or the cable between the pump and Sirio as causes.",
     ),
     NumberParam(
         12, "freq_min", "1.2", "Minimum frequency", False, 0, 70, 1, 0, "raw", "Hz",
-        "Minimum frequency at which the pump starts and runs. Service manual: about 25 Hz for a three-phase pump and 30 Hz for a single-phase pump. Check the pump manufacturer's data for the lowest frequency at which this motor still runs properly. The user booklet also gives it as a percentage of maximum frequency: 50% for a surface pump, 60% for a pump 8–10 m down, 70% deeper than 10 m. Raise it if start is too slow and pressure falls hard during start.",
+        "Minimum frequency at which the pump starts and runs. Service manual: about 25 Hz for a three-phase pump and 30 Hz for a single-phase pump. Check the pump manufacturer's data for the lowest frequency at which this motor still runs properly.",
     ),
     NumberParam(
         13, "freq_stop", "1.3", "Stop frequency", False, 0, 70, 1, 0, "raw", "Hz",
@@ -154,11 +154,11 @@ NUMBERS: tuple[NumberParam, ...] = (
     ),
     NumberParam(
         26, "autoreset_interval", "2.6", "Autoreset interval", False, 1, 240, 1, 0, "raw", "min",
-        "If the pump loses water on the suction side, Sirio cuts the motor to protect it. This is the wait, in minutes, before Sirio tests whether water is back. A successful test clears the fault and the system runs again; a failed test is repeated after the same interval. Maximum on this software is 240 minutes. The manual recommends 60. The older user booklet allows up to 300 minutes.",
+        "If the pump loses water on the suction side, Sirio cuts the motor to protect it. This is the wait, in minutes, before Sirio tests whether water is back. A successful test clears the fault and the system runs again; a failed test is repeated after the same interval. Maximum is 240 minutes. The service manual recommends 60.",
     ),
     NumberParam(
         27, "autoreset_tests", "2.7", "No. autoreset tests", False, 0, 20, 1, 0, "raw", None,
-        "How many times Sirio tries to restart after a dry-run stop. When the count is used up, the system stays off until someone resets it. 0 disables automatic restart. Maximum is 20. The user booklet counts only short starts that never reach about 2.5 l/min, and on that older software the maximum is 10.",
+        "How many times Sirio tries to restart after a dry-run stop. When the count is used up, the system stays off until someone resets it. 0 disables automatic restart. Maximum is 20.",
     ),
     NumberParam(
         40, "vboost", "4.0", "Vboost", True, 0, 30, 1, 0, "raw", "%",
@@ -174,7 +174,7 @@ NUMBERS: tuple[NumberParam, ...] = (
     ),
     NumberParam(
         45, "ki", "4.5", "Ki", True, 0, 50, 1, 0, "raw", None,
-        "Integral constant of the PID that holds constant pressure. A higher value pulls the output pressure closer to the set-point. Too high and the regulation becomes unstable: the pressure keeps oscillating. The user booklet describes the same control as one PID value, factory 25, maximum 50: low values are slow but smooth, high values react faster.",
+        "Integral constant of the PID that holds constant pressure. A higher value pulls the output pressure closer to the set-point. Too high and the regulation becomes unstable: the pressure keeps oscillating.",
     ),
     NumberParam(
         46, "kp", "4.6", "Kp", True, 0, 50, 1, 0, "raw", None,
@@ -202,7 +202,7 @@ NUMBERS: tuple[NumberParam, ...] = (
     ),
     NumberParam(
         54, "min_flow", "5.4", "Minimum flow", True, 0, 50, 1, 0, "raw", "L/min",
-        "Flow below which the pump is stopped once every outlet is closed. Lower it to let the pump keep running at a very small flow. Raise it if the pump does not stop when delivery is fully closed. The user booklet quotes a typical stop threshold of about 2 l/min.",
+        "Flow below which the pump is stopped once every outlet is closed. Lower it to let the pump keep running at a very small flow. Raise it if the pump does not stop when delivery is fully closed.",
     ),
     NumberParam(
         55, "ipm", "5.5", "IPM mod.", True, 0, 20, 1, 0, "raw", "Hz/s",
@@ -229,7 +229,7 @@ SELECTS: tuple[SelectParam, ...] = (
     ),
     SelectParam(
         11, "rotation", "1.1", "Rotation direction", False, {21: "-->", 22: "<--"},
-        "Reverses motor rotation without changing the wiring. The arrow shown here is only a guide. It is not the real direction of rotation, which the installer still has to check on the pump.",
+        "Motor rotation direction. The service manual names the parameter and says it is checked when factory settings are loaded; it does not describe the arrow.",
     ),
     SelectParam(
         17, "soft_start_mode", "1.7", "Soft-start", False, {7: "ON", 8: "OFF"},
@@ -261,7 +261,7 @@ SELECTS: tuple[SelectParam, ...] = (
     ),
     SelectParam(
         42, "starts_per_hour", "4.2", "Protection starts per hour", True, {11: "OFF", 12: "10", 13: "20", 14: "30", 15: "40", 16: "50", 17: "60"},
-        "Maximum pump starts in one hour, used as a leak check. OFF disables the protection. Above the limit, alarm E11 (maximum starts per hour) trips. The user booklet calls the same alarm Serious leakage and says to raise the limit if it trips without a real leak. Only short starts are counted, those that never reach about 2.5 l/min.",
+        "Maximum pump starts in one hour, used as a leak check. OFF disables the protection. Above the limit, alarm E11 (maximum starts per hour) trips.",
     ),
     SelectParam(
         43, "antiblock", "4.3", "Anti-blockage protection", True, {7: "ON", 8: "OFF"},
@@ -277,16 +277,16 @@ ALL_PARAMS: tuple[NumberParam | SelectParam, ...] = NUMBERS + SELECTS
 PARAM_INDEXES: tuple[int, ...] = tuple(item.index for item in ALL_PARAMS)
 PARAMS_BY_INDEX: dict[int, NumberParam | SelectParam] = {item.index: item for item in ALL_PARAMS}
 
-# Русские названия и текст из сервисного руководства и книжки пользователя.
+# Русский текст из сервисного руководства. Английский там же.
 # У 4.8, 5.4 и 5.5 в русской главе нет своих абзацев, текст перенесен из английской главы того же мануала.
 RU: dict[int, tuple[str, str]] = {
     0: (
         "Значение Pmax",
-        "Параметр задает рабочую точку устройства: постоянное давление, которое пользователь устанавливает для системы (максимальное давление). После пуска скорость двигателя регулируется так, чтобы давление было как можно ближе к Pmax. Минимальная разница между Pmax и Pmin составляет 0,3 бара, рекомендуется не меньше 0,5 бара. Если Pmax выше максимального напора насоса, двигатель останавливается при закрытых вентилях: Sirio отключает насос, когда поток падает ниже минимального заданного значения (примерно 2 л/мин), независимо от давления.",
+        "Уставка давления. В п. 1.3: если при регулировании достигнут Pmax, а частота двигателя ниже частоты останова, инвертор останавливает насос.",
     ),
     1: (
         "Значение Pmin",
-        "Давление включения насоса. Если открывается разбор, насос не пускается, пока давление в системе не упадет ниже Pmin. На панели Universal этот регистр называется дельтой пуска относительно Pmax. Минимальная разница между Pmax и Pmin составляет 0,3 бара, рекомендуется не меньше 0,5 бара.",
+        "Дельта давления для пуска насоса: насколько давление должно упасть ниже Pmax, чтобы насос пустился. В сервисном мануале отдельного абзаца для 0.1 нет, имя взято с панели обслуживания.",
     ),
     2: (
         "Давление срабатывания защиты от сухого хода",
@@ -310,15 +310,15 @@ RU: dict[int, tuple[str, str]] = {
     ),
     10: (
         "Значение Imax",
-        "Максимальный ток двигателя в обычной работе. Выше него двигатель останавливается: авария E6, перегрузка. Небольшая перегрузка держится дольше, сильная обрывает работу сразу. Если ток во время работы ниже 0,5 А, Sirio считает двигатель отключенным и останавливает его. Если при включении Imax еще 0,5 А, контроллер остается на этой странице, пока не будет задано рабочее значение. В книжке предел 0,5–9,7 А; на этом Universal шкала выше.",
+        "Максимальный ток двигателя. E6 «Перегрузка» появляется, когда потребляемый ток превышает Imax. В мануале причины: тяжелый режим, частые перезапуски, обмотка двигателя или кабель между насосом и Sirio.",
     ),
     11: (
         "Направление вращения",
-        "Меняет направление вращения двигателя без перекладки проводов. Стрелка на панели только ориентир и не показывает фактическое направление. Его проверяет установщик.",
+        "Направление вращения двигателя. В сервисном мануале параметр назван и указан среди проверок после сброса к заводским настройкам. Отдельного описания стрелки там нет.",
     ),
     12: (
         "Минимальная частота",
-        "Минимальная частота, при которой пускается и работает насос. Для трехфазного насоса рекомендуется 25 Гц, для однофазного 30 Гц. Сверьте с данными производителя насоса, при какой минимальной частоте подключенный двигатель еще работает штатно. В книжке то же задается в процентах от максимума: 50% для поверхностного насоса, 60% при погружении 8–10 м, 70% глубже 10 м. Увеличьте, если пуск слишком медленный и на нем сильно падает давление.",
+        "Минимальная частота, при которой пускается и работает насос. Для трехфазного насоса рекомендуется 25 Гц, для однофазного 30 Гц. Сверьте с данными производителя насоса, при какой минимальной частоте подключенный двигатель еще работает штатно.",
     ),
     13: (
         "Частота останова",
@@ -366,11 +366,11 @@ RU: dict[int, tuple[str, str]] = {
     ),
     26: (
         "Интервал автоматического перезапуска",
-        "Если на всасывании временно нет воды, Sirio снимает питание с насоса. Здесь задают паузу в минутах до проверки, вернулась ли вода. Успешная проверка снимает ошибку и система снова работает; неуспешная повторяется через тот же интервал. Максимум на этой прошивке 240 минут, рекомендуется 60. В книжке указано до 300 минут.",
+        "Если на всасывании временно нет воды, Sirio снимает питание с насоса. Здесь задают паузу в минутах до проверки, вернулась ли вода. Успешная проверка снимает ошибку и система снова работает; неуспешная повторяется через тот же интервал. Максимум 240 минут, в сервисном мануале рекомендуется 60.",
     ),
     27: (
         "Число попыток автоматического перезапуска",
-        "Сколько раз Sirio пытается пустить насос после остановки по сухому ходу. Когда попытки кончились, система остается выключенной, пока ее не сбросит человек. 0 отключает автоматический перезапуск. Максимум 20. В книжке считаются только короткие пуски, которые не набирают около 2,5 л/мин, и максимум там 10.",
+        "Сколько раз Sirio пытается пустить насос после остановки по сухому ходу. Когда попытки кончились, система остается выключенной, пока ее не сбросит человек. 0 отключает автоматический перезапуск. Максимум 20.",
     ),
     28: (
         "Общий автоматический перезапуск",
@@ -386,7 +386,7 @@ RU: dict[int, tuple[str, str]] = {
     ),
     42: (
         "Количество запусков в час",
-        "Максимальное число пусков насоса в час, проверка на утечку. Чтобы отключить защиту, удерживайте «−», пока не появится OFF. Выше лимита появляется E11. В книжке тот же сигнал называется «Сильная утечка воды»: если он возникает без реальной утечки, лимит увеличивают. Считаются короткие пуски, которые не набирают около 2,5 л/мин.",
+        "Максимальное число пусков насоса в час, проверка на утечку. Чтобы отключить защиту, удерживайте «−», пока не появится OFF. Выше лимита появляется E11.",
     ),
     43: (
         "Защита от заклинивания",
@@ -398,7 +398,7 @@ RU: dict[int, tuple[str, str]] = {
     ),
     45: (
         "Интегральная константа Ki",
-        "Интеграл ПИД, который держит постоянное давление. Больше значение — выходное давление ближе к уставке. Слишком большое дает нестабильность: давление постоянно колеблется. В книжке тот же контур описан одним PID: заводское 25, максимум 50. Низкие значения медленнее и плавнее, высокие быстрее.",
+        "Интеграл ПИД, который держит постоянное давление. Больше значение — выходное давление ближе к уставке. Слишком большое дает нестабильность: давление постоянно колеблется.",
     ),
     46: (
         "Пропорциональная константа Kp",
@@ -430,7 +430,7 @@ RU: dict[int, tuple[str, str]] = {
     ),
     54: (
         "Минимальный поток",
-        "В русской главе отдельного абзаца нет, формулировка из английской главы. Порог потока, ниже которого насос останавливается, когда все точки разбора закрыты. Уменьшите, чтобы насос мог работать на совсем малом расходе. Увеличьте, если он не останавливается при полностью закрытой подаче. В книжке типичный порог около 2 л/мин.",
+        "В русской главе отдельного абзаца нет, формулировка из английской главы. Порог потока, ниже которого насос останавливается, когда все точки разбора закрыты. Уменьшите, чтобы насос мог работать на совсем малом расходе. Увеличьте, если он не останавливается при полностью закрытой подаче.",
     ),
     55: (
         "Частотная рампа",
