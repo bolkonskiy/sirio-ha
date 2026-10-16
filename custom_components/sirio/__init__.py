@@ -73,5 +73,5 @@ async def _async_register_manual(hass: HomeAssistant) -> None:
             )
         ]
     )
-    add_extra_js_url(hass, "/sirio/manual/more-info.js?v=1")
+    add_extra_js_url(hass, "/sirio/manual/more-info.js?v=2")
     store["manual_js"] = True

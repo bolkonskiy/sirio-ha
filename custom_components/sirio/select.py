@@ -69,7 +69,9 @@ class SirioSelectEntity(SirioEntity, SelectEntity):
         """Manual note and the raw register."""
         raw = self.coordinator.data.params.get(self._param.index)
         return {
+            "name_ru": self._param.name_ru,
             "manual": self._param.manual,
+            "manual_ru": self._param.manual_ru,
             "custom_ui_more_info": "more-info-sirio-manual",
             "register": self._param.index,
             "raw": raw,

@@ -29,9 +29,27 @@ if (!customElements.get("more-info-sirio-manual")) {
       }
     }
 
+    _section(heading, text) {
+      const block = document.createElement("div");
+      const title = document.createElement("div");
+      title.textContent = heading;
+      title.style.fontSize = "var(--ha-font-size-s, 12px)";
+      title.style.fontWeight = "600";
+      title.style.letterSpacing = "0.04em";
+      title.style.textTransform = "uppercase";
+      title.style.color = "var(--secondary-text-color)";
+      title.style.marginBottom = "6px";
+      const body = document.createElement("div");
+      body.textContent = text;
+      block.append(title, body);
+      return block;
+    }
+
     _draw() {
-      const text = this._state?.attributes?.manual;
-      if (!text) {
+      const attrs = this._state?.attributes || {};
+      const russian = attrs.manual_ru;
+      const english = attrs.manual;
+      if (!russian && !english) {
         this.replaceChildren();
         return;
       }
@@ -44,17 +62,15 @@ if (!customElements.get("more-info-sirio-manual")) {
       box.style.fontSize = "var(--ha-font-size-m, 14px)";
       box.style.lineHeight = "1.45";
       box.style.whiteSpace = "pre-wrap";
-      const title = document.createElement("div");
-      title.textContent = "Manual";
-      title.style.fontSize = "var(--ha-font-size-s, 12px)";
-      title.style.fontWeight = "600";
-      title.style.letterSpacing = "0.04em";
-      title.style.textTransform = "uppercase";
-      title.style.color = "var(--secondary-text-color)";
-      title.style.marginBottom = "6px";
-      const body = document.createElement("div");
-      body.textContent = text;
-      box.append(title, body);
+      box.style.display = "flex";
+      box.style.flexDirection = "column";
+      box.style.gap = "14px";
+      if (russian) {
+        box.append(this._section(attrs.name_ru || "По-русски", russian));
+      }
+      if (english) {
+        box.append(this._section("English", english));
+      }
       this.replaceChildren(box);
     }
   }
