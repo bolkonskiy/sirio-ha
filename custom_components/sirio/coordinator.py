@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import time
 from dataclasses import dataclass, field
 from datetime import timedelta
 from typing import Any
@@ -52,6 +53,7 @@ class SirioCoordinator(DataUpdateCoordinator[SirioData]):
         self._cursor = 0
         self._scans = 0
         self._fail_streak = 0
+        self._catalog_done = False
 
         super().__init__(
             hass,
@@ -80,34 +82,33 @@ class SirioCoordinator(DataUpdateCoordinator[SirioData]):
             raise UpdateFailed(str(err)) from err
 
         self._fail_streak = 0
-        params = dict(self.data.params) if self.data else {}
-        network = self.data.network if self.data else None
-
-        if self._scans == 0:
-            params.update(await self._read_catalog())
-            network = await self._read_network() or network
+        if self.data is None:
+            data = SirioData(status=status)
         else:
+            self.data.status = status
+            data = self.data
+
+        # Полный каталог читается фоновой задачей и не держит старт HA.
+        # Пока он идет, опрос только обновляет runtime.
+        if self._catalog_done:
+            params = data.params
             index = PARAM_INDEXES[self._cursor % len(PARAM_INDEXES)]
             self._cursor += 1
             spec = PARAMS_BY_INDEX[index]
             value = await self._read_one(index, spec.advanced)
             if value is not None:
                 params[index] = value
+            self._scans += 1
             if self._scans % 6 == 0:
-                network = await self._read_network() or network
+                network = await self._read_network()
+                if network is not None:
+                    data.network = network
 
-        self._scans += 1
-        soft_start = params.get(SOFT_START_REGISTER_INDEX)
-        data = SirioData(
-            status=status,
-            params=params,
-            network=network,
-            soft_start=soft_start,
-        )
+        data.soft_start = data.params.get(SOFT_START_REGISTER_INDEX)
 
         if (
             self.entry.options.get(CONF_AUTO_SOFT_START)
-            and soft_start == SOFT_START_DISABLED_VALUE
+            and data.soft_start == SOFT_START_DISABLED_VALUE
         ):
             try:
                 value = await self.api.set_soft_start(True)
@@ -118,15 +119,33 @@ class SirioCoordinator(DataUpdateCoordinator[SirioData]):
 
         return data
 
-    async def _read_catalog(self) -> dict[int, int]:
-        loaded: dict[int, int] = {}
-        for index in PARAM_INDEXES:
-            spec = PARAMS_BY_INDEX[index]
-            value = await self._read_one(index, spec.advanced)
-            if value is not None:
-                loaded[index] = value
-        _LOGGER.debug("Sirio catalog read: %s registers", len(loaded))
-        return loaded
+    async def async_load_catalog(self) -> None:
+        """Read every parameter after setup, without blocking startup."""
+        started = time.monotonic()
+        try:
+            network = await self._read_network()
+            if self.data is not None and network is not None:
+                self.data.network = network
+                self.async_set_updated_data(self.data)
+            loaded = 0
+            for index in PARAM_INDEXES:
+                spec = PARAMS_BY_INDEX[index]
+                value = await self._read_one(index, spec.advanced)
+                if self.data is None:
+                    return
+                if value is not None:
+                    self.data.params[index] = value
+                    loaded += 1
+                    if index == SOFT_START_REGISTER_INDEX:
+                        self.data.soft_start = value
+                self.async_set_updated_data(self.data)
+            _LOGGER.info(
+                "Sirio catalog loaded in %.0f s, %s registers",
+                time.monotonic() - started,
+                loaded,
+            )
+        finally:
+            self._catalog_done = True
 
     async def _read_one(self, index: int, advanced: bool) -> int | None:
         try:
