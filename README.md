@@ -6,9 +6,10 @@ All entities are grouped under a single device. Supports multiple controllers vi
 
 ## Features
 
-- Sensors: pressure, voltage, current, frequency, temperature, IGBT temperature, set pressure, starts, hours, error code, power
-- Binary sensors: running, error, pump enabled, soft start
+- Sensors: pressure, voltage, current, frequency, temperature, IGBT temperature, set pressure, starts, hours, error code, power, mode, max current, max frequency, alarm counters, Wi-Fi status
+- Binary sensors: running, error, pump enabled, soft start, motor and the panel flags
 - Switches: pump, soft start
+- Every base and advanced parameter from the panel, as a number or a select. The controller only steps a register up or down (`key` 007/008 and 009/010), so a change walks to the target and steps back if it does not arrive. Relay I/O is not stepped when the panel shows `---`.
 - Config flow: add controller by IP/hostname
 - Options: polling interval, auto soft-start
 

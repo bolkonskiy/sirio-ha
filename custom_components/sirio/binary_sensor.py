@@ -11,6 +11,7 @@ from homeassistant.components.binary_sensor import (
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import DOMAIN, SOFT_START_ENABLED_VALUE
@@ -49,6 +50,49 @@ BINARY_SENSOR_TYPES: tuple[SirioBinarySensorEntityDescription, ...] = (
         translation_key="soft_start",
         is_on="soft_start",
         icon="mdi:fan-speed-1",
+    ),
+    SirioBinarySensorEntityDescription(
+        key="motor",
+        name="Двигатель",
+        is_on="motor",
+        icon="mdi:engine",
+    ),
+    SirioBinarySensorEntityDescription(
+        key="master",
+        name="Мастер",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        is_on="master",
+    ),
+    SirioBinarySensorEntityDescription(
+        key="second_setpoint",
+        name="Вторая уставка",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        is_on="second_setpoint",
+    ),
+    SirioBinarySensorEntityDescription(
+        key="external_enable",
+        name="Внешнее разрешение",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        is_on="external_enable",
+    ),
+    SirioBinarySensorEntityDescription(
+        key="external_error",
+        name="Внешняя ошибка",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        device_class=BinarySensorDeviceClass.PROBLEM,
+        is_on="external_error",
+    ),
+    SirioBinarySensorEntityDescription(
+        key="pilot",
+        name="Пилот",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        is_on="pilot",
+    ),
+    SirioBinarySensorEntityDescription(
+        key="manual",
+        name="Ручной режим",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        is_on="manual",
     ),
 )
 
@@ -96,6 +140,18 @@ class SirioBinarySensorEntity(SirioEntity, BinarySensorEntity):
         if kind == "soft_start":
             soft_start = self.coordinator.data.soft_start
             return soft_start == SOFT_START_ENABLED_VALUE if soft_start is not None else None
+        flags = {
+            "motor": "motorOn",
+            "master": "master",
+            "second_setpoint": "doubleSetPoint",
+            "external_enable": "extEnabled",
+            "external_error": "extErr",
+            "pilot": "pilota",
+            "manual": "pumpMan",
+        }
+        if kind in flags:
+            raw = status.get(flags[kind])
+            return None if raw is None else int(raw) == 1
 
         return None
 

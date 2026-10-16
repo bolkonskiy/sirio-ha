@@ -13,6 +13,7 @@ from homeassistant.components.sensor import (
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import UnitOfElectricCurrent, UnitOfElectricPotential, UnitOfPower, UnitOfPressure, UnitOfTemperature, UnitOfTime
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import DOMAIN
@@ -167,9 +168,54 @@ async def async_setup_entry(
     """Set up Sirio sensors."""
     coordinator: SirioCoordinator = hass.data[DOMAIN][entry.entry_id]
     async_add_entities(
-        SirioSensorEntity(coordinator, description, entry.entry_id)
-        for description in SENSOR_TYPES
+        [
+            *(
+                SirioSensorEntity(coordinator, description, entry.entry_id)
+                for description in SENSOR_TYPES
+            ),
+            SirioRuntimeSensor(coordinator, entry.entry_id, "max_current", "Максимальный ток", "ampMax", "A"),
+            SirioRuntimeSensor(coordinator, entry.entry_id, "max_frequency", "Максимальная частота", "freqMax", "Hz"),
+            SirioModeSensor(coordinator, entry.entry_id),
+            *(
+                SirioErrorCountSensor(coordinator, entry.entry_id, index, name)
+                for index, name in ERROR_COUNTERS
+            ),
+            *(
+                SirioNetworkSensor(coordinator, entry.entry_id, key, name, unit)
+                for key, name, unit in NETWORK_SENSORS
+            ),
+        ]
     )
+
+
+ERROR_COUNTERS: tuple[tuple[int, str], ...] = (
+    (0, "E0 низкое напряжение"),
+    (1, "E1 высокое напряжение"),
+    (2, "E2 короткое замыкание"),
+    (3, "E3 сухой ход"),
+    (4, "E4 температура платы"),
+    (5, "E5 температура IGBT"),
+    (6, "E6 перегрузка"),
+    (7, "E7 вне кривой"),
+    (8, "E8 ошибка связи"),
+    (9, "E9 предел давления"),
+    (10, "E10 внешняя ошибка"),
+    (11, "E11 пуски в час"),
+    (12, "E12 питание 12 В"),
+    (13, "E13 датчик давления"),
+)
+
+NETWORK_SENSORS: tuple[tuple[str, str, str | None], ...] = (
+    ("currentIp", "IP адрес", None),
+    ("currentMask", "Маска", None),
+    ("currentGw", "Шлюз", None),
+    ("network", "Сеть Wi-Fi", None),
+    ("rssi", "RSSI", "dBm"),
+    ("signal", "Сигнал", None),
+    ("client", "Клиенты Wi-Fi", None),
+    ("fwVer", "Прошивка", None),
+    ("inetTime", "Время контроллера", None),
+)
 
 
 class SirioSensorEntity(SirioEntity, SensorEntity):
@@ -214,3 +260,110 @@ class SirioSensorEntity(SirioEntity, SensorEntity):
             return float(raw)
 
         return raw
+
+
+class SirioRuntimeSensor(SirioEntity, SensorEntity):
+    """A runtime field that is not one of the original sensors."""
+
+    def __init__(
+        self,
+        coordinator: SirioCoordinator,
+        entry_id: str,
+        key: str,
+        name: str,
+        value_key: str,
+        unit: str,
+    ) -> None:
+        super().__init__(coordinator)
+        self._value_key = value_key
+        self._scale = 10 if key == "max_current" else 1
+        self._attr_unique_id = f"{entry_id}_{key}"
+        self._attr_name = name
+        self._attr_native_unit_of_measurement = unit
+        self._attr_state_class = SensorStateClass.MEASUREMENT
+
+    @property
+    def native_value(self) -> float | None:
+        raw = self.coordinator.data.status.get(self._value_key)
+        if raw is None:
+            return None
+        return float(raw) / self._scale
+
+
+class SirioModeSensor(SirioEntity, SensorEntity):
+    """ON, STAND-BY or ERROR, same as the panel status icon."""
+
+    def __init__(self, coordinator: SirioCoordinator, entry_id: str) -> None:
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{entry_id}_mode"
+        self._attr_name = "Режим"
+        self._attr_icon = "mdi:pump"
+
+    @property
+    def native_value(self) -> str:
+        status = self.coordinator.data.status
+        if int(status.get("flagError", 0)) == 1:
+            return "ERROR"
+        if int(status.get("standBy", 0)) == 1:
+            return "STAND-BY"
+        return "ON"
+
+
+class SirioErrorCountSensor(SirioEntity, SensorEntity):
+    """How many times one alarm code has been raised."""
+
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_icon = "mdi:counter"
+
+    def __init__(
+        self,
+        coordinator: SirioCoordinator,
+        entry_id: str,
+        index: int,
+        name: str,
+    ) -> None:
+        super().__init__(coordinator)
+        self._index = index
+        self._attr_unique_id = f"{entry_id}_e{index}"
+        self._attr_name = name
+
+    @property
+    def native_value(self) -> int | None:
+        raw = self.coordinator.data.status.get(f"e{self._index}")
+        if raw is None:
+            return None
+        return int(raw)
+
+
+class SirioNetworkSensor(SirioEntity, SensorEntity):
+    """A field from the status page."""
+
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    def __init__(
+        self,
+        coordinator: SirioCoordinator,
+        entry_id: str,
+        key: str,
+        name: str,
+        unit: str | None,
+    ) -> None:
+        super().__init__(coordinator)
+        self._key = key
+        self._attr_unique_id = f"{entry_id}_net_{key}"
+        self._attr_name = name
+        self._attr_native_unit_of_measurement = unit
+        if key == "rssi":
+            self._attr_state_class = SensorStateClass.MEASUREMENT
+            self._attr_device_class = SensorDeviceClass.SIGNAL_STRENGTH
+
+    @property
+    def native_value(self) -> str | int | None:
+        network = self.coordinator.data.network
+        if not network or self._key not in network:
+            return None
+        value = network[self._key]
+        if self._key in {"rssi", "signal", "client"}:
+            return int(value)
+        return str(value)

@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-import asyncio
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import timedelta
 from typing import Any
 
@@ -17,10 +16,12 @@ from .const import (
     CONF_AUTO_SOFT_START,
     CONF_SCAN_INTERVAL,
     DEFAULT_SCAN_INTERVAL,
-    DEFAULT_SOFT_START_POLL_INTERVAL,
     DOMAIN,
+    SOFT_START_DISABLED_VALUE,
     SOFT_START_ENABLED_VALUE,
+    SOFT_START_REGISTER_INDEX,
 )
+from .params import PARAM_INDEXES, PARAMS_BY_INDEX
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -30,6 +31,8 @@ class SirioData:
     """Combined controller state."""
 
     status: dict[str, Any]
+    params: dict[int, int] = field(default_factory=dict)
+    network: dict[str, Any] | None = None
     soft_start: int | None = None
 
 
@@ -46,13 +49,8 @@ class SirioCoordinator(DataUpdateCoordinator[SirioData]):
         self.entry = entry
         scan_interval = entry.options.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
         self._scan_interval_seconds = scan_interval
-        self._soft_start_interval = max(
-            scan_interval, DEFAULT_SOFT_START_POLL_INTERVAL
-        )
-        self._soft_start_polls = max(
-            1, self._soft_start_interval // self._scan_interval_seconds
-        )
-        self._poll_count = 0
+        self._cursor = 0
+        self._scans = 0
         self._fail_streak = 0
 
         super().__init__(
@@ -82,36 +80,88 @@ class SirioCoordinator(DataUpdateCoordinator[SirioData]):
             raise UpdateFailed(str(err)) from err
 
         self._fail_streak = 0
-        soft_start = self.data.soft_start if self.data else None
-        self._poll_count += 1
-        if self._poll_count >= self._soft_start_polls:
-            self._poll_count = 0
+        params = dict(self.data.params) if self.data else {}
+        network = self.data.network if self.data else None
+
+        if self._scans == 0:
+            params.update(await self._read_catalog())
+            network = await self._read_network() or network
+        else:
+            index = PARAM_INDEXES[self._cursor % len(PARAM_INDEXES)]
+            self._cursor += 1
+            spec = PARAMS_BY_INDEX[index]
+            value = await self._read_one(index, spec.advanced)
+            if value is not None:
+                params[index] = value
+            if self._scans % 6 == 0:
+                network = await self._read_network() or network
+
+        self._scans += 1
+        soft_start = params.get(SOFT_START_REGISTER_INDEX)
+        data = SirioData(
+            status=status,
+            params=params,
+            network=network,
+            soft_start=soft_start,
+        )
+
+        if (
+            self.entry.options.get(CONF_AUTO_SOFT_START)
+            and soft_start == SOFT_START_DISABLED_VALUE
+        ):
             try:
-                soft_start = await self.api.get_soft_start()
+                value = await self.api.set_soft_start(True)
+                data.soft_start = value
+                data.params[SOFT_START_REGISTER_INDEX] = value
             except SirioApiError as err:
-                _LOGGER.debug("Soft-start register read failed: %s", err)
-
-        data = SirioData(status=status, soft_start=soft_start)
-
-        if self.entry.options.get(CONF_AUTO_SOFT_START) and soft_start is not None:
-            if soft_start != SOFT_START_ENABLED_VALUE:
-                try:
-                    await self.api.set_soft_start(True)
-                    await asyncio.sleep(1)
-                    data.soft_start = await self.api.get_soft_start()
-                except SirioApiError as err:
-                    _LOGGER.warning("Auto soft-start failed: %s", err)
+                _LOGGER.warning("Auto soft-start failed: %s", err)
 
         return data
+
+    async def _read_catalog(self) -> dict[int, int]:
+        loaded: dict[int, int] = {}
+        for index in PARAM_INDEXES:
+            spec = PARAMS_BY_INDEX[index]
+            value = await self._read_one(index, spec.advanced)
+            if value is not None:
+                loaded[index] = value
+        _LOGGER.debug("Sirio catalog read: %s registers", len(loaded))
+        return loaded
+
+    async def _read_one(self, index: int, advanced: bool) -> int | None:
+        try:
+            return await self.api.read_param(index, advanced)
+        except SirioApiError as err:
+            _LOGGER.debug("Parameter %s read failed: %s", index, err)
+            return None
+
+    async def _read_network(self) -> dict[str, Any] | None:
+        try:
+            return await self.api.get_network()
+        except SirioApiError as err:
+            _LOGGER.debug("Network status read failed: %s", err)
+            return None
 
     async def async_toggle_pump(self) -> None:
         """Toggle pump and refresh state."""
         await self.api.toggle_pump()
-        await asyncio.sleep(1)
         await self.async_request_refresh()
 
     async def async_set_soft_start(self, enabled: bool) -> None:
-        """Set soft-start and refresh state."""
-        await self.api.set_soft_start(enabled)
-        await asyncio.sleep(1)
-        await self.async_request_refresh()
+        """Set soft-start and refresh the cached register."""
+        await self.async_write_param(
+            SOFT_START_REGISTER_INDEX,
+            False,
+            SOFT_START_ENABLED_VALUE if enabled else SOFT_START_DISABLED_VALUE,
+        )
+
+    async def async_write_param(self, index: int, advanced: bool, target: int) -> None:
+        """Write one register and keep the new raw value in the cache."""
+        value = await self.api.write_raw(index, advanced, target)
+        if self.data is None:
+            await self.async_request_refresh()
+            return
+        self.data.params[index] = value
+        if index == SOFT_START_REGISTER_INDEX:
+            self.data.soft_start = value
+        self.async_set_updated_data(self.data)
