@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 import logging
 
 import aiohttp
 
+from homeassistant.components.frontend import add_extra_js_url
+from homeassistant.components.http import StaticPathConfig
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_HOST, Platform
 from homeassistant.core import HomeAssistant
@@ -28,6 +31,7 @@ PLATFORMS = [
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Sirio from a config entry."""
+    await _async_register_manual(hass)
     session = async_get_clientsession(hass)
     api = SirioApi(entry.data[CONF_HOST], session)
     coordinator = SirioCoordinator(hass, entry, api)
@@ -53,3 +57,21 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 async def async_reload_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
     """Reload config entry."""
     await hass.config_entries.async_reload(entry.entry_id)
+
+
+async def _async_register_manual(hass: HomeAssistant) -> None:
+    """Serve the dialog snippet that shows the manual text."""
+    store = hass.data.setdefault(DOMAIN, {})
+    if store.get("manual_js"):
+        return
+    await hass.http.async_register_static_paths(
+        [
+            StaticPathConfig(
+                "/sirio/manual",
+                str(Path(__file__).parent / "www"),
+                cache_headers=False,
+            )
+        ]
+    )
+    add_extra_js_url(hass, "/sirio/manual/more-info.js?v=1")
+    store["manual_js"] = True

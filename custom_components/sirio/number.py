@@ -65,6 +65,7 @@ class SirioNumberEntity(SirioEntity, NumberEntity):
         raw = self.coordinator.data.params.get(self._param.index)
         return {
             "manual": self._param.manual,
+            "custom_ui_more_info": "more-info-sirio-manual",
             "register": self._param.index,
             "raw": raw,
         }
