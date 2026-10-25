@@ -75,6 +75,45 @@ class SirioConfigFlow(ConfigFlow, domain=DOMAIN):
             errors=errors,
         )
 
+    async def async_step_reconfigure(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Change the controller host on an existing entry."""
+        errors: dict[str, str] = {}
+        entry = self._get_reconfigure_entry()
+
+        if user_input is not None:
+            normalized = SirioApi(
+                user_input[CONF_HOST], async_get_clientsession(self.hass)
+            ).host
+            try:
+                title = await validate_host(self.hass, normalized)
+            except SirioApiConnectionError:
+                errors["base"] = "cannot_connect"
+            except SirioApiError:
+                errors["base"] = "unknown"
+            except (aiohttp.ClientError, TimeoutError):
+                errors["base"] = "cannot_connect"
+            else:
+                return self.async_update_reload_and_abort(
+                    entry,
+                    unique_id=normalized,
+                    title=title,
+                    data_updates={CONF_HOST: normalized},
+                )
+
+        return self.async_show_form(
+            step_id="reconfigure",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(
+                        CONF_HOST, default=entry.data.get(CONF_HOST, "")
+                    ): str
+                }
+            ),
+            errors=errors,
+        )
+
     @staticmethod
     @callback
     def async_get_options_flow(config_entry: ConfigEntry) -> OptionsFlow:
